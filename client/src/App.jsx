@@ -5,7 +5,8 @@ import "./App.css";
 function App() {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
-  const [sources, setSources] = useState([]);
+  const [contextSources, setContextSources] = useState([]);
+  const [verifiedSources, setVerifiedSources] = useState([]);
   const [loading, setLoading] = useState(false);
 
   async function ask() {
@@ -13,8 +14,8 @@ function App() {
 
     setLoading(true);
     setAnswer("");
-    setSources([]);
-
+    setContextSources([]);
+    setVerifiedSources([]);
     const response = await fetch("/rag/query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -38,10 +39,15 @@ function App() {
         if (!line.trim()) continue;
         const data = JSON.parse(line);
 
-        if (data.sources) setSources(data.sources);
+        if (data.contextInUse) {
+          setContextSources(data.contextInUse);
+        }
         if (data.token) {
           fullAnswer += data.token;
           setAnswer(fullAnswer);
+        }
+        if (data.verifiedSources) {
+          setVerifiedSources(data.verifiedSources);
         }
       }
     }
@@ -70,21 +76,29 @@ function App() {
         </div>
 
         <div className="answer-box">
-          {answer || "Your answer will appear here ✨"}
+          {answer || "Your answer will appear here"}
         </div>
 
         <div className="sources">
-          {sources.map((s, i) => (
-            <a
-              key={i}
-              href={s.url}
-              target="_blank"
-              rel="noreferrer"
-              className="source-chip"
-            >
-              {s.title} ({s.jurisdiction}) <FaExternalLinkAlt size={10} />
-            </a>
-          ))}
+          {contextSources.length > 0 && verifiedSources.length === 0 && (
+            <p className="verifying-note">
+              Checking {contextSources.length} source(s) for accuracy...
+            </p>
+          )}
+
+          <div className="sources">
+            {verifiedSources.map((s, i) => (
+              <a
+                key={i}
+                href={s.url}
+                target="_blank"
+                rel="noreferrer"
+                className="source-chip"
+              >
+                {s.title} ({s.jurisdiction}) <FaExternalLinkAlt size={10} />
+              </a>
+            ))}
+          </div>
         </div>
       </div>
     </div>

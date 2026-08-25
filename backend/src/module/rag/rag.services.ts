@@ -4,6 +4,7 @@ import { embedding } from "../../config/chroma";
 import chromadb = require("chromadb");
 import { ChatOllama } from "@langchain/ollama";
 import { Document } from "@langchain/core/documents";
+import e = require("express");
 
 // export async function fetchAILaws() {
 //   const apiKey = process.env.AI_LAW_TRACKER_API_KEY;
@@ -33,6 +34,26 @@ import { Document } from "@langchain/core/documents";
 //   console.log("Total laws fetched:", allLaws.length);
 //   return allLaws;
 // }
+async function fetchJurisdictions() {
+  const apiKey = process.env.AI_LAW_TRACKER_API_KEY;
+  const response = await fetch(
+    "https://ai-law-tracker.com/api/v1/jurisdictions",
+    { headers: { "X-API-Key": apiKey! } },
+  );
+  const { data } = await response.json();
+  return data;
+}
+
+export async function resetCollection() {
+  const chromaClient = new chromadb.CloudClient({
+    apiKey: process.env.CHROMA_API_KEY!,
+    tenant: process.env.CHROMA_TENANT!,
+    database: process.env.CHROMA_DATABASE!,
+  });
+  await chromaClient.deleteCollection({ name: "ai-law-tracker" });
+  return { message: "Collection deleted" };
+}
+
 export async function fetchAllLaws() {
   const apiKey = process.env.AI_LAW_TRACKER_API_KEY!;
   const jurisdictions = await fetchJurisdictions();
@@ -150,31 +171,22 @@ export async function queryLaws(question: string) {
     title: r.metadata.title,
     jurisdiction: r.metadata.jurisdiction,
     url: r.metadata.official_url,
+    text: r.pageContent,
   }));
 
-  const prompt = `Answer the question using only this context:\n${context}\nQuestion: ${question}`;
+  const prompt = `Answer the question using ONLY the context below. Follow these rules strictly:
+- If a source is labelled a "Bill", it is PROPOSED legislation, not an enacted law. Say so explicitly — never claim "no law exists" just because you only see a bill.
+- If the context does not clearly answer the question, say "The available data doesn't clearly cover this" instead of guessing or generalizing.
+- Do not make sweeping claims (like "no law exists anywhere") unless the context explicitly supports it.
+
+Context:
+${context}
+
+Question: ${question}
+
+Answer:`;
   const llm = new ChatOllama({ model: "llama3.2" });
   const stream = await llm.stream(prompt);
 
-  return { sources, stream };
-}
-
-async function fetchJurisdictions() {
-  const apiKey = process.env.AI_LAW_TRACKER_API_KEY;
-  const response = await fetch(
-    "https://ai-law-tracker.com/api/v1/jurisdictions",
-    { headers: { "X-API-Key": apiKey! } },
-  );
-  const { data } = await response.json();
-  return data;
-}
-
-export async function resetCollection() {
-  const chromaClient = new chromadb.CloudClient({
-    apiKey: process.env.CHROMA_API_KEY!,
-    tenant: process.env.CHROMA_TENANT!,
-    database: process.env.CHROMA_DATABASE!,
-  });
-  await chromaClient.deleteCollection({ name: "ai-law-tracker" });
-  return { message: "Collection deleted" };
+  return { sources, stream, llm };
 }
