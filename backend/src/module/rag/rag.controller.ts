@@ -40,30 +40,18 @@ export async function queryHandler(req: Request, res: Response) {
     res.write(JSON.stringify({ token: chunk.content }) + "\n");
   }
 
-  const verifiedSources = [];
-  for (const source of sources) {
-    const checkPrompt = `Reply with EXACTLY one word: YES or NO. Do not explain.
+  const verifiedSources = sources.filter((source) => {
+    // EU regulations jaise "2024/1689" wala number title mein dhoondo
+    const idMatch = source.title.match(/\d{4}\/\d+/);
+    if (idMatch && fullAnswer.includes(idMatch[0])) return true;
 
-Does this passage support the answer below?
-
-Passage: "${source.text}"
-
-Answer: "${fullAnswer}"
-
-Reply (YES or NO only):`;
-
-    const verdict = await llm.invoke(checkPrompt);
-    const verdictText = verdict.content.toString().trim().toLowerCase();
-    console.log(`"${source.title}" → "${verdictText}"`);
-
-    if (verdictText.startsWith("yes")) {
-      verifiedSources.push({
-        title: source.title,
-        jurisdiction: source.jurisdiction,
-        url: source.url,
-      });
-    }
-  }
+    // US bills ke liye (jinke number nahi hote): title ka pehla hissa answer mein dhoondo
+    const firstPart = source.title.split(":")[0].trim();
+    return (
+      firstPart.length > 5 &&
+      fullAnswer.toLowerCase().includes(firstPart.toLowerCase())
+    );
+  });
 
   res.write(JSON.stringify({ verifiedSources }) + "\n");
   res.end();

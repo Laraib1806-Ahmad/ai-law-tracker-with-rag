@@ -185,7 +185,7 @@ ${context}
 Question: ${question}
 
 Answer:`;
-  const llm = new ChatOllama({ model: "llama3.2" });
+  const llm = new ChatOllama({ model: "llama3.2", temperature: 0 });
   const stream = await llm.stream(prompt);
 
   return { sources, stream, llm };
