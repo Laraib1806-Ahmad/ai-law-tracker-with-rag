@@ -41,11 +41,9 @@ export async function queryHandler(req: Request, res: Response) {
   }
 
   const verifiedSources = sources.filter((source) => {
-    // EU regulations jaise "2024/1689" wala number title mein dhoondo
     const idMatch = source.title.match(/\d{4}\/\d+/);
     if (idMatch && fullAnswer.includes(idMatch[0])) return true;
 
-    // US bills ke liye (jinke number nahi hote): title ka pehla hissa answer mein dhoondo
     const firstPart = source.title.split(":")[0].trim();
     return (
       firstPart.length > 5 &&
